@@ -1,6 +1,24 @@
 # CS686-3-Project
 
-Move the files into the following directory:
+This repository contains code used for the project Evaluating the Effectiveness of Bandwidth Measurement Tools in the Presence of a Deceptive ISP during Spring 2024 by James Ambat, Jayanarayanan Jayaganesh, Ashutosh Malla, Lawrence Ng, and Maxwell Weidmer.
+
+The original README containing information on how to configure the click router and run it with the modified classifier that enabled us to separate network packets between Bandwidth Measurement Tool traffic or not can be found in the section [CS686 Original Repository README below](#cs686-original-repository-readme-below).
+
+The original repository contains only the following files/directories:
+- click/
+- evaluation/
+- pcap_analysis_tool/
+- scripts/
+- speedofme/
+- classifier.cc
+- classifier.hh
+- sandbox_tester.click
+
+Additional work has been work to create 
+
+## CS686 Original Repository README below
+
+Move the `classifier.cc` and `classifier.hh` into the following directory:
 ```
 /click/elements/standard
 ```
