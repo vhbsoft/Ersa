@@ -1,6 +1,6 @@
 # CS686-3-Project
 
-Move the `classifier.cc` and `classifier.hh` into the following directory:
+Move the files into the following directory:
 ```
 /click/elements/standard
 ```

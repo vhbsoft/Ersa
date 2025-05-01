@@ -38,10 +38,16 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <string>
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <cstdlib>
+
 CLICK_DECLS
 using namespace std;
 
 
+unordered_map<string, bool> Classifier::is_flagged_ips;
 
 Classifier::Classifier()
 {
@@ -50,26 +56,114 @@ Classifier::Classifier()
      * needed. While the map's size may be large, we can leverage O(1) lookup for fast classification vs. costly
      * searches for subset strings. Map<String, bool> is used since unordered_set requires iterator management.
      */
-    behavior_definitions["222210"] = true;
-    behavior_definitions["222210202200"] = true;
-    behavior_definitions["2222102022001220"] = true;
-    behavior_definitions["2222102022001220202100"] = true;
-    behavior_definitions["2222102022001220202100202010"] = true;
-    behavior_definitions["222210202200122020210020201022"] = true;
-    behavior_definitions["222210202200122020210020201022000"] = true;
-    behavior_definitions["22221020220012202021002020102200011"] = true;
 
     /* iPerf3 */
-    behavior_definitions["222211111111111111111111111111111111000"] = true;
+    /* Statis IP allowed us to classify on external network test. These behaviors allows us to classify on internal
+     * network test where there are not IP identifiers only an abstracted behavior.
+     */
+    behavior_definitions["20111"] = true;
+    behavior_definitions["201111111"] = true;
+    behavior_definitions["20111111111"] = true;
+    behavior_definitions["20111111111001"] = true;
+
+    behavior_definitions["21111"] = true;
+    behavior_definitions["211111"] = true;
+    behavior_definitions["2111111"] = true;
+    behavior_definitions["21111111"] = true;
+    behavior_definitions["211111111"] = true;
+    behavior_definitions["2111111111"] = true;
+    behavior_definitions["21111111111"] = true;
+    behavior_definitions["211111111111"] = true;
+    behavior_definitions["2111111111111110"] = true;
 
     /* fast.com */
+    behavior_definitions["222121"] = true;
+    behavior_definitions["2221212100"] = true;
+    behavior_definitions["222121210021"] = true;
+    behavior_definitions["2221212100212"] = true;
+    behavior_definitions["222121210021211"] = true;
+    behavior_definitions["2221212100212112"] = true;
+    behavior_definitions["22212121002121121"] = true;
 
     /* speedof.me */
 
     /* speedcheck.org */
 
     /* speedtest.net */
+    behavior_definitions["21011"] = true;
+    behavior_definitions["2101100"] = true;
+    behavior_definitions["2101100012"] = true;
+    behavior_definitions["2101100012111"] = true;
+    behavior_definitions["2101100012111111"] = true;
+    behavior_definitions["21011000121111110"] = true;
 
+    behavior_definitions["21011"] = true;
+    behavior_definitions["21011000"] = true;
+    behavior_definitions["210110001"] = true;
+    behavior_definitions["2101100012"] = true;
+    behavior_definitions["21011000121"] = true;
+    behavior_definitions["210110001211"] = true;
+    behavior_definitions["2101100012111"] = true;
+    behavior_definitions["21011000121111"] = true;
+    behavior_definitions["210110001211111"] = true;
+    behavior_definitions["2101100012111111"] = true;
+
+    behavior_definitions["21111"] = true;
+    behavior_definitions["211111"] = true;
+    behavior_definitions["2111112"] = true;
+    behavior_definitions["21111120"] = true;
+    behavior_definitions["211111200"] = true;
+    behavior_definitions["2111112000"] = true;
+    behavior_definitions["21111120001"] = true;
+    behavior_definitions["211111200011"] = true;
+    behavior_definitions["2111112000111"] = true;
+
+    behavior_definitions["2000"] = true;
+    behavior_definitions["20001"] = true;
+    behavior_definitions["200011"] = true;
+    behavior_definitions["2000110"] = true;
+    behavior_definitions["20001100"] = true;
+    behavior_definitions["200011001"] = true;
+    behavior_definitions["2000110012"] = true;
+    behavior_definitions["20001100120"] = true;
+    behavior_definitions["200011001201"] = true;
+    behavior_definitions["2000110012011"] = true;
+    behavior_definitions["20001100120110"] = true;
+
+    behavior_definitions["20211"] = true;
+    behavior_definitions["202111"] = true;
+    behavior_definitions["2021112"] = true;
+    behavior_definitions["20211121"] = true;
+    behavior_definitions["202111211"] = true;
+    behavior_definitions["2021112111"] = true;
+    behavior_definitions["20211121110"] = true;
+    behavior_definitions["202111211101"] = true;
+    behavior_definitions["2021112111011"] = true;
+    behavior_definitions["20211121110111"] = true;
+    behavior_definitions["202111211101110"] = true;
+    behavior_definitions["2021112111011100"] = true;
+
+    behavior_definitions["20111"] = true;
+    behavior_definitions["201112"] = true;
+    behavior_definitions["2011121"] = true;
+    behavior_definitions["20111211"] = true;
+    behavior_definitions["201112112"] = true;
+    behavior_definitions["2011121121"] = true;
+    behavior_definitions["20111211210"] = true;
+    behavior_definitions["201112112102"] = true;
+    behavior_definitions["2011121121021"] = true;
+    behavior_definitions["20111211210210"] = true;
+    behavior_definitions["201112112102100"] = true;
+    behavior_definitions["2011121121021001"] = true;
+    behavior_definitions["20111211210210011"] = true;
+    behavior_definitions["201112112102100111"] = true;
+    behavior_definitions["2011121121021001111"] = true;
+    behavior_definitions["20111211210210011111"] = true;
+    behavior_definitions["201112112102100111111"] = true;
+    behavior_definitions["2011121121021001111111"] = true;
+    behavior_definitions["20111211210210011111111"] = true;
+    behavior_definitions["201112112102100111111111"] = true;
+    behavior_definitions["2011121121021001111111110"] = true;
 }
 
 Classification::Wordwise::Program
@@ -310,56 +404,13 @@ Classifier::push(int, Packet *p)
     string destination_ip_string = get_ip_string(&destination_ip[0], 4);
 
     /* Obtain port number with bit-shifting */
-    string destination_port = to_string((int)(*(p->data() + 36) | *(p->data() + 37) << 8));
+    // string destination_port = to_string((int)(*(p->data() + 36) | *(p->data() + 37) << 8));
 
-    string key_1 = "";
-    string key_2 = "";
+    string suspected_ips_1 = "";
+    string suspected_ips_2 = "";
 
-    key_1.append(source_ip_string).append(":").append(destination_ip_string);
-    key_2.append(destination_ip_string).append(":").append(source_ip_string);
-
-    // cout << "size of is_Flagged: " << is_Flagged.size() << "\n";
-
-    /* Add or update entries to is_flagged */
-    auto entry = is_Flagged.find(key_1);
-    if (entry == is_Flagged.end()){
-        // cout << "key does not exist, adding to map\n" << "\n";
-        comm_entity_stat new_stat;
-        new_stat.stat = REGULAR;
-        new_stat.counter = 1;
-        new_stat.isFlagged = false;
-        is_Flagged[key_1] = new_stat;
-    } else {
-        // entry->counter = entry->counter + 1;
-        // cout << "key does exist: " << entry->second.isFlagged << "\n";
-        if (entry->second.isFlagged){ // this condition is not triggering because isFlagged is false
-            // cout << "key pushed to unthrottled";
-            output(1).push(p);
-            // if it's a fin-ack, set isFlagged to false
-            if (is_tcp && *(p->data() + 47) == 0x11){ 
-                entry->second.isFlagged = false;
-            }
-            return;
-        }
-        // cout << "did not go into if loop" << "\n";
-    }
-
-    /* Do the same for the reverse direction */
-    auto entry_2 = is_Flagged.find(key_2);
-    if (entry_2 == is_Flagged.end()){
-        comm_entity_stat new_stat;
-        new_stat.stat = REGULAR;
-        new_stat.isFlagged = false;
-        is_Flagged[key_2] = new_stat;
-    } else {
-        if (entry_2->second.isFlagged){
-            output(1).push(p);
-            if (is_tcp && *(p->data() + 47) == 0x11){
-                entry_2->second.isFlagged = false;
-            }
-            return;
-        }
-    }
+    suspected_ips_1.append(source_ip_string).append(":").append(destination_ip_string);
+    suspected_ips_2.append(destination_ip_string).append(":").append(source_ip_string);
 
     long double packet_m_bits = (p->length() * 8) / 1000000.000000;
     time_burst_map[curr_time] = time_burst_map[curr_time] + packet_m_bits;
@@ -369,6 +420,27 @@ Classifier::push(int, Packet *p)
         max_m_bits_per_second = time_burst_map[curr_time];
     }
 
+    if(time_burst_map[curr_time] > 0) {
+        int burst_difference = time_burst_map[curr_time] - time_burst_map[curr_time - 1];
+        bool increased_rate = abs(burst_difference) > burst_threshold && burst_difference > 0;
+        bool decreased_rate = abs(burst_difference) < burst_threshold && burst_difference < 0;
+        /* 0: decrease, 1: constant, 2: increase */
+        int curr_behavior = 1;
+        if (increased_rate) {
+            curr_behavior = 2;
+            if (found_first_burst) {
+                current_behavior_map.clear(); /* Track a new behavior */
+                found_first_burst = false;
+            }
+        } else if (decreased_rate) {
+            curr_behavior = 0;
+        }
+        current_behavior_map[curr_time] = curr_behavior;
+    }
+
+    string curr_behavior = get_current_behavior_string();
+    cout << "Current Behavior Abstraction: " << curr_behavior << endl;
+
     /* Track slower traffic through the router to help estimate the end of testing or sending to THROTTLED
      * link since the data transfer requirements won't likely need to reach the maximum link capacity.
      */
@@ -376,31 +448,50 @@ Classifier::push(int, Packet *p)
         low_burst_rate_counter++;
     }
 
+    /* The reliable iPerf3 public server that can be accessed consistently on the internet is located
+     * at iperf3.moji.fr. This endpoint has the static IP address of 145.147.210.189.
+     * Other servers like: iperf.scottlinux.com and iperf.he.net are offline and always return an
+     * error (Unable to send control message: Bad file descriptor). Our project uses 145.147.210.189
+     * to flag this bandwidth measurement tool for testing purposes on an external network for consistent
+     * testing controls with the other bandwidth measurement tools hosted on external networks.
+     */
+    if (source_ip_string == "45.147.210.189" || destination_ip_string == "45.147.210.189") {
+        unthrottled_counter++;
+        is_flagged_ips[suspected_ips_1] = true;
+        is_flagged_ips[suspected_ips_2] = true;
+        output(1).push(p);
+        return;
+    }
+
     bool is_other_protocol = (!is_tcp && !is_udp) || is_dns;
     if (is_other_protocol || low_burst_rate_counter > 115) {
         /* Forward non-TCP and non-UDP packets to throttled port, these aren't measurement tools */
-        if (is_other_protocol) {
-            // cout << "OTHER PROTOCOL SENT TO THROTTLED LINK" << endl;
-        } else {
-            /* If the measurement tools send packets in low bursts, send them to the THROTTLED link since
-             * they care be serviced at a lower rate anyways.
-             */
-            // cout << "LOW BURST COUNTER" << low_burst_rate_counter << endl;
+        if (!is_other_protocol) {
             low_burst_rate_counter = 0;
         }
+        throttled_counter++;
         output(0).push(p);
         return;
     }
 
     /* Allow some time to pass for individual packets to be evaluated again */
-    if ((curr_time - start_burst) > observation_threshold) {
-        is_measurement_tool_packet_train = false;
+    if (start_burst > 0 && ((curr_time - start_burst) > observation_threshold) ||
+        current_behavior_map.size() > observation_threshold) {
+        /* So that we can track the new behavior next time. It will be toggled when a new behavior is tracked */
+        found_first_burst = true;
         low_burst_rate_counter = 0;
         start_burst = 0;
+        print_statistics();
+        is_flagged_ips.clear();
+        throttled_counter = 0;
+        unthrottled_counter = 0;
+        current_behavior_map.clear();
+        cout << "\t\t\t\t\t\t *** RESET OBSERVATION STATE ***" << endl;
     }
 
-    if (is_measurement_tool_packet_train) {
+    if (is_flagged_ips[suspected_ips_1] || is_flagged_ips[suspected_ips_2]) {
         output(1).push(p);
+        unthrottled_counter++;
         return;
     }
 
@@ -408,12 +499,11 @@ Classifier::push(int, Packet *p)
     if (is_tcp && (p->length() > 56) && *(p->data() + 55) == 0x03 &&
         ((*(p->data() + 56) == 0x00) || (*(p->data() + 56) == 0x01) || (*(p->data() + 56) == 0x02))) {
 
-        /* Acquire the session ID from the TLS packet */
-        string session_id = get_tls_session_id(p);
-
-        cout << "TLS SESSION ID:  " << session_id << endl;
-
         int tls_length = *(p->data() + 57) | *(p->data() + 58) << 8;
+        if (p->length() < tls_length) {
+            tls_length = p->length();
+        }
+
         bool is_measurement_tool_hello =
                 memmem(p->data() + 57, tls_length, speed_of_me_1, 14) != nullptr ||
                 memmem(p->data() + 57, tls_length, speed_of_me_2, 10) != nullptr ||
@@ -424,46 +514,50 @@ Classifier::push(int, Packet *p)
                 memmem(p->data() + 57, tls_length, speed_check_org_1, 18) != nullptr ||
                 memmem(p->data() + 57, tls_length, speed_check_org_2, 18) != nullptr ||
                 memmem(p->data() + 57, tls_length, speed_check_org_3, 17) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_check_org_4, 15) != nullptr ||
                 memmem(p->data() + 57, tls_length, speed_test_net_1, 17) != nullptr ||
                 memmem(p->data() + 57, tls_length, speed_test_net_2, 11) != nullptr ||
-                memmem(p->data() + 57, tls_length, speed_test_net_3, 18) != nullptr;
-        // cout << "before finding client hello \n";
+                memmem(p->data() + 57, tls_length, speed_test_net_3, 18) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_4, 24) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_5, 29) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_6, 21) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_7, 14) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_8, 20) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_9, 19) != nullptr ||
+                memmem(p->data() + 57, tls_length, speed_test_net_10, 20) != nullptr;
+
         /* Found client hello, send all the packet through to the un-throttled link */
         if (is_measurement_tool_hello) {
-            /* Print statement and sleep to inspect each measurement tool; suppress comments for performance */
-            // cout << "!! FOUND CLIENT HELLO !!" << endl;
-            // usleep(5000000);
-        //    cout << "before changing isFlagged: " << entry->second.isFlagged << "\n";
-            entry->second.isFlagged = true;
-        //    cout << "after changing isFlagged: " << entry->second.isFlagged << "\n";
-            output(1).push(p);
-            is_measurement_tool_packet_train = true;
+            unthrottled_counter++;
+
+            is_flagged_ips[suspected_ips_1] = true;
+            is_flagged_ips[suspected_ips_2] = true;
             if (start_burst == 0) {
                 start_burst = curr_time;
             }
+            output(1).push(p);
             return;
         }
     }
 
-    /* PLACEHOLDER: Last attempt to classify packet traffic based on behavior in library of profiles */
-    bool is_measurement_tool_behavior = false;
-    /* TODO: is_flagged counters will build the behavior string during live packet trains */
-    string curr_behavior = "WONT MATCH ANYTHING";
-    try {
-        is_measurement_tool_behavior = behavior_definitions[curr_behavior];
-    } catch (const::out_of_range& exception) {
-        /* Do nothing */
-    }
-    if (is_measurement_tool_behavior) {
-        /* Print statement for inspection only; suppressed for performance */
-        // cout << "!! Found a measurement tool by behavior !!" << endl; */
+    /* Last-chance classification on behavior */
+    auto iterator = behavior_definitions.find(curr_behavior);
+    if (iterator != behavior_definitions.end()) {
+        /* We found a behavior in our library of behavior definitions */
+        unthrottled_counter++;
 
+        is_flagged_ips[suspected_ips_1] = true;
+        is_flagged_ips[suspected_ips_2] = true;
+        if (start_burst == 0) {
+            start_burst = curr_time;
+        }
         output(1).push(p);
-        is_measurement_tool_packet_train = true;
         return;
     }
 
+
     /* Pushing all other packets to Link 0 */
+    throttled_counter++;
     output(0).push(p);
 }
 
@@ -500,6 +594,39 @@ Classifier::get_tls_session_id(Packet* p) {
     }
 
     return curr_string;
+}
+
+void
+Classifier::print_statistics() {
+    cout << "STATISTICS" << endl;
+    cout << "# THROTTLED PACKETS: " << throttled_counter << endl;
+    cout << "# UNTHROTTLED PACKETS: " << unthrottled_counter << endl;
+    cout << "BANDWIDTH MEASUREMENT TOOL IPS: " << endl;
+    for (auto entry = is_flagged_ips.begin(); entry != is_flagged_ips.end(); entry++) {
+        cout << entry->first << endl;
+    }
+
+    long curr_time = static_cast<long>(time(0));
+
+    ofstream stats_file;
+    stats_file.open("stats_file" + std::to_string(curr_time) + ".txt" );
+
+    stats_file << "# THROTTLED PACKETS: " << throttled_counter << endl;
+    stats_file << "# UNTHROTTLED PACKETS: " << unthrottled_counter << endl;
+    stats_file << "BANDWIDTH MEASUREMENT TOOL IPS: " << endl;
+    for (auto entry = is_flagged_ips.begin(); entry != is_flagged_ips.end(); entry++) {
+        stats_file << entry->first << endl;
+    }
+    stats_file.close();
+}
+
+string
+Classifier::get_current_behavior_string() {
+    string curr_behavior_string = "";
+    for (auto entry = current_behavior_map.begin(); entry != current_behavior_map.end(); entry++) {
+        curr_behavior_string.append(std::to_string(entry->second));
+    }
+    return curr_behavior_string;
 }
 
 CLICK_ENDDECLS

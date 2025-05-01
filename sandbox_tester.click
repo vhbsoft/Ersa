@@ -7,29 +7,44 @@
  * 10 Mbits/sec = 1250000 Bytes/sec
  */
 classifier :: Classifier(12/0800, -);
+classifier_server :: Classifier(12/0800, -);
+
 
 out_server :: ToDevice(enp0s9);
-out_client :: Queue(80000000) -> ToDevice(enp0s8);
+out_client :: ToDevice(enp0s8);
 scheduler :: PrioSched -> out_server;
+
+scheduler_server :: PrioSched -> out_client;
+
 
 FromDevice(enp0s8, PROMISC true)
 	-> classifier;
 
 /* Remove the Print() after testing. Use 0 to supress packet info printed to stdout.
- * Capture packets at enp0s8 for behavior definitions before classification.
+ * Capture packets at enp0s9 for behavior definitions @ the maximum link capacity.
  */
 classifier[0]
     -> Queue(80000000)
-    -> Print("## Throttled ##", 0)
+    -> Print("CLIENT: ## Throttled ##", 0)
     -> BandwidthShaper(1250000B/s)
     -> [1] scheduler;
 
-/* The un-throttled link is left fully un-throttled without a bandwidth shaper for now */
 classifier[1]
     -> Queue(80000000)
-    -> Print("!! Bandwidth Measurement Tool !!", 0)
+    -> Print("CLIENT: !! Bandwidth Measurement Tool !!", 0)
     -> [0] scheduler;
 
 /* Send anything from the server to the client */
-FromDevice(enp0s9, PROMISC true) -> out_client;
+FromDevice(enp0s9, PROMISC true)
+    -> classifier_server;
 
+classifier_server[0]
+    -> Queue(80000000)
+    -> Print("\t\t\t\t\t\tSERVER: ## Throttled ##", 0)
+    -> BandwidthShaper(1250000B/s)
+    -> [1] scheduler_server;
+
+classifier_server[1]
+    -> Queue(80000000)
+    -> Print("\t\t\t\t\t\tSERVER: !! Bandwidth Measurement Tool !!", 0)
+    -> [0] scheduler_server;

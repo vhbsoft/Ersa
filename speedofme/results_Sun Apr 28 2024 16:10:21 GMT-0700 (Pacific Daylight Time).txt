@@ -1,0 +1,1 @@
+{"testResult":{"latency":26,"jitter":36,"download":416.03,"upload":167.34,"maxDownload":420.84,"maxUpload":179.51,"testServer":"San Jose 5","ip_address":"162.237.77.152","hostname":"162-237-77-152.lightspeed.sntcca.sbcglobal.net","userAgent":"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:124.0) Gecko/20100101 Firefox/124.0","testDate":"2024-04-28T23:10:21.882Z"}}
